@@ -9,6 +9,17 @@ build_dir=$1
 cache_dir=$2
 env_dir=$3
 
+rvm_home=$app_dir/.rvm
+cached_rvm_root=$cache_dir/rvm
+
+remove_rvm_cache=true
+
+# If REMOVE_RVM_CACHE is set, clean up the cache
+[ -n "$remove_rvm_cache" ] && [ -d $cached_rvm_root ] && echo "Removing cached copy of RVM"
+[ -n "$remove_rvm_cache" ] && [ -d $cached_rvm_root ] && rm -fr $cached_rvm_root
+
+# Install rvm as ~/.rvm as root
+
 bp_dir=$(cd $(dirname $0); cd ..; pwd)
 
 # Fix leak
@@ -78,7 +89,7 @@ elif test -d $cache_dir/node/node_modules; then
   cp -r $cache_dir/node/node_modules $build_dir/
   
   status "Pruning cached dependencies not specified in package.json"
-  npm install 2>&1 | indent
+  #npm install 2>&1 | indent
   #npm prune 2>&1 | indent
 
   if test -f $cache_dir/node/.heroku/node-version && [ $(cat $cache_dir/node/.heroku/node-version) != "$node_version" ]; then
@@ -92,7 +103,7 @@ fi
 # rebuild any native deps. Otherwise, restore from the build cache.
 
 # Install bower if required
-if [! -f $build_dir/node_modules/bower/bin/bower ]; then
+if [ ! -f $build_dir/node_modules/bower/bin/bower ]; then
   status "Installing bower"
   npm install bower
 fi
@@ -178,7 +189,7 @@ fi
 
 # Update the PATH
 status "Building runtime environment"
-status "====> Feitico buildpack"
+status "====> Kamran buildpack"
 mkdir -p $build_dir/.profile.d
 echo "export PATH=\"\$HOME/vendor/node/bin:\$HOME/bin:\$HOME/node_modules/.bin:\$PATH\";" > $build_dir/.profile.d/nodejs.sh
 
@@ -194,6 +205,24 @@ echo "export PATH=\"\$HOME/vendor/node/bin:\$HOME/bin:\$HOME/node_modules/.bin:\
   fi
 )
 
+# Install ruby gems if required
+if [ -f $build_dir/Gemfile ]; then
+  echo "-----> Installing ruby gems"
+  cat << EOF > ~/.gemrc
+  gemhome: $build_dir/.gems
+  gempath:
+  - $build_dir/.gems
+EOF
+
+  export GEM_HOME=$build_dir/.gems
+
+  gem install bundler;
+  $build_dir/.gems/bin/bundle install --path $GEM_HOME
+
+  status "Setting environment variables"
+  export PATH=$build_dir/.gems/ruby/1.9.1/bin:$PATH
+fi
+
 # If app has a bower_components directory, cache it.
 if test -d $build_dir/bower_components; then
   status "Caching bower_components directory for future builds"
@@ -201,7 +230,7 @@ if test -d $build_dir/bower_components; then
 fi
 
 # Install grunt-cli if required
-if [! -f $build_dir/node_modules/grunt-cli/bin/grunt ]; then
+if [ ! -f $build_dir/node_modules/grunt-cli/bin/grunt ]; then
     status "Installing grunt-cli" 
     npm install grunt-cli
 fi
@@ -219,7 +248,7 @@ fi
     #npm install grunt-cli
     #npm install grunt
     echo "-----> Found Gruntfile, running grunt heroku:$NODE_ENV task"
-    grunt build:$NODE_ENV
+    $build_dir/node_modules/grunt-cli/bin/grunt build:$NODE_ENV
 
     # status "Pruning dev dependencies"
     # npm prune --production 2>&1 | indent
