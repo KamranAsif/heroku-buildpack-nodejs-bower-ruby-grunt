@@ -216,11 +216,13 @@ EOF
 
   export GEM_HOME=$build_dir/.gems
 
-  gem install bundler;
-  $build_dir/.gems/bin/bundle install --path $GEM_HOME
+  gem install jekyll -v 2.3.0
+  gem install execjs
+  gem install kramdown
+  gem install sass -v 3.4.3
 
   status "Setting environment variables"
-  export PATH=$build_dir/.gems/ruby/1.9.1/bin:$PATH
+  export PATH=$build_dir/.gems/bin:$PATH
 fi
 
 # If app has a bower_components directory, cache it.
